@@ -1,0 +1,76 @@
+pipeline {
+    agent any 
+    environment {
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+        AWS_DEFAULT_REGION = "us-east-1"
+    }
+
+    stages {
+     stage('checkout scm') {
+        steps {
+            script {
+             checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/sriuday19/terraform-jenkins-eks.git']])
+            }
+        }
+
+      }
+      
+      stage('initializing terraform') {
+          steps {
+              script {
+                  dir('eks-cluster') {
+                      sh 'terraform init'
+                  }
+              }
+          }
+        }
+       stage('fmt terraform') {
+          steps {
+              script {
+                  dir('eks-cluster') {
+                      sh 'terraform fmt'
+                  }
+              }
+          }
+       }
+       stage('validate terraform') {
+          steps {
+              script {
+                  dir('eks-cluster') {
+                      sh 'terraform validate'
+                  }
+              }
+          }
+       }
+       stage('plan terraform') {
+          steps {
+              script {
+                  dir('eks-cluster') {
+                      sh 'terraform plan'
+                  }
+              }
+          }
+       }
+       stage('apply terraform') {
+          steps {
+              script {
+                  dir('eks-cluster') {
+                      sh 'terraform apply --auto-approve'
+                  }
+              }
+          }
+       }
+       stage('deploying the app') {
+        steps {
+            script {
+                dir('eks-cluster/config_files') {
+                    sh 'aws eks update-kubeconfig --name my-eks-cluster'
+                    sh 'kubectl apply -f app-deploy.yml'
+                    sh 'kubectl apply -f app-service.yml'
+                }
+            }
+        }
+       }
+    }
+}
